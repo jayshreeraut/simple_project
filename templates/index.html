@@ -1,42 +1,137 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
+    <meta charset="UTF-8">
     <title>Laptop Price Predictor</title>
+
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600&display=swap" rel="stylesheet">
+
+    <style>
+        body {
+            font-family: 'Poppins', sans-serif;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            margin: 0;
+            padding: 0;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 40px auto;
+            background: #ffffff;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 15px 40px rgba(0,0,0,0.2);
+        }
+
+        h2 {
+            text-align: center;
+            color: #4b0082;
+        }
+
+        h3 {
+            border-left: 5px solid #667eea;
+            padding-left: 10px;
+            margin-top: 30px;
+        }
+
+        label {
+            font-weight: 500;
+        }
+
+        input, select {
+            width: 100%;
+            padding: 10px;
+            border-radius: 6px;
+            border: 1px solid #ccc;
+            margin-bottom: 15px;
+        }
+
+        button {
+            background: linear-gradient(to right, #667eea, #764ba2);
+            color: white;
+            border: none;
+            padding: 12px 25px;
+            font-size: 16px;
+            border-radius: 30px;
+            cursor: pointer;
+        }
+
+        button:hover {
+            transform: scale(1.05);
+        }
+
+        .prediction-box {
+            margin-top: 30px;
+            padding: 20px;
+            background: #f0f8ff;
+            border-left: 6px solid #667eea;
+            border-radius: 8px;
+            text-align: center;
+        }
+
+        .file-upload {
+            background: #fafafa;
+            padding: 20px;
+            border-radius: 10px;
+            border: 2px dashed #667eea;
+            text-align: center;
+        }
+
+        footer {
+            text-align: center;
+            margin-top: 20px;
+            color: #777;
+            font-size: 13px;
+        }
+    </style>
 </head>
+
 <body>
-<h2>Laptop Price Prediction</h2>
 
-<form action="/predict" method="post">
-    <h3>Numeric Features</h3>
-    {% for col in num_cols %}
-        <label>{{ col }}</label>
-        <input type="number" step="any" name="{{ col }}" required><br><br>
-    {% endfor %}
+<div class="container">
+    <h2>💻 Laptop Price Prediction</h2>
 
-    <h3>Categorical Features</h3>
-    {% for col in cat_cols %}
-        <label>{{ col }}</label>
-        <select name="{{ col }}" required>
-            {% for val in cat_uniques[col] %}
-                <option value="{{ val }}">{{ val }}</option>
-            {% endfor %}
-        </select><br><br>
-    {% endfor %}
+    <!-- Single Prediction -->
+    <form action="/predict" method="post">
+        <h3>🔢 Numeric Features</h3>
+        {% for col in num_cols %}
+            <label>{{ col }}</label>
+            <input type="number" step="any" name="{{ col }}" required>
+        {% endfor %}
 
-    <button type="submit">Predict</button>
-</form>
+        <h3>📂 Categorical Features</h3>
+        {% for col in cat_cols %}
+            <label>{{ col }}</label>
+            <select name="{{ col }}" required>
+                {% for val in cat_uniques[col] %}
+                    <option value="{{ val }}">{{ val }}</option>
+                {% endfor %}
+            </select>
+        {% endfor %}
 
-{% if prediction %}
-<h2>Predicted Price: ₹ {{ prediction }}</h2>
-{% endif %}
+        <button type="submit">🔍 Predict Price</button>
+    </form>
 
-<hr>
+    {% if prediction %}
+    <div class="prediction-box">
+        <h2>💰 Predicted Price: ₹ {{ prediction }}</h2>
+    </div>
+    {% endif %}
 
-<h3>Batch Prediction</h3>
-<form action="/batch_predict" method="post" enctype="multipart/form-data">
-    <input type="file" name="file" required>
-    <button type="submit">Upload & Predict</button>
-</form>
+    <hr>
+
+    <!-- Batch Prediction -->
+    <h3>📊 Batch Prediction (CSV Upload)</h3>
+    <form action="/batch_predict" method="post" enctype="multipart/form-data" class="file-upload">
+        <input type="file" name="file" required>
+        <br><br>
+        <button type="submit">⬆ Upload & Preview</button>
+    </form>
+
+    <footer>
+        Made with ❤️ using Machine Learning
+    </footer>
+</div>
 
 </body>
 </html>
