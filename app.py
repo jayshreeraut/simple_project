@@ -1,20 +1,26 @@
-from flask import Flask, render_template, request, send_file
+from flask import Flask, render_template, request, send_file, jsonify
 import pandas as pd
 import joblib
 import json
 from pathlib import Path
 import io
+import os
 
 app = Flask(__name__)
 
-# ================= PATHS =================
+# =====================================================
+# PATH CONFIG
+# =====================================================
 PROJECT_ROOT = Path(__file__).parent
-PREPROCESSOR_PATH = PROJECT_ROOT / "artifacts" / "transformed" / "preprocessor.joblib"
+
 MODEL_PATH = PROJECT_ROOT / "prediction" / "models" / "models" / "current_model.joblib"
+PREPROCESSOR_PATH = PROJECT_ROOT / "artifacts" / "transformed" / "preprocessor.joblib"
 FEATURE_LIST_PATH = PROJECT_ROOT / "artifacts" / "transformed" / "feature_list.json"
 TRAIN_CSV_PATH = PROJECT_ROOT / "artifacts" / "transformed" / "train.csv"
 
-# ================= LOAD ARTIFACTS (ONCE) =================
+# =====================================================
+# LOAD ARTIFACTS (ON STARTUP)
+# =====================================================
 preprocessor = joblib.load(PREPROCESSOR_PATH)
 model = joblib.load(MODEL_PATH)
 
@@ -23,16 +29,23 @@ with open(FEATURE_LIST_PATH) as f:
 
 NUM_COLS = feature_data["num_cols"]
 CAT_COLS = feature_data["cat_cols"]
-FEATURES = NUM_COLS + CAT_COLS
 
-# Load dropdown values from training data
+# Dropdown values (from training data)
 train_df = pd.read_csv(TRAIN_CSV_PATH)
 CAT_UNIQUES = {
     col: sorted(train_df[col].dropna().astype(str).unique().tolist())
     for col in CAT_COLS
 }
 
-# ================= ROUTES =================
+# =====================================================
+# GLOBAL STORE (for batch download)
+# =====================================================
+batch_result_df = None
+
+# =====================================================
+# ROUTES
+# =====================================================
+
 @app.route("/")
 def home():
     return render_template(
@@ -42,6 +55,8 @@ def home():
         cat_uniques=CAT_UNIQUES
     )
 
+
+# ---------------- SINGLE PREDICTION ------------------
 @app.route("/predict", methods=["POST"])
 def predict():
     input_data = {}
@@ -53,7 +68,6 @@ def predict():
         input_data[col] = request.form[col]
 
     df = pd.DataFrame([input_data])
-
     X_transformed = preprocessor.transform(df)
     prediction = model.predict(X_transformed)[0]
 
@@ -65,18 +79,39 @@ def predict():
         cat_uniques=CAT_UNIQUES
     )
 
+
+# ---------------- BATCH PREDICTION + PREVIEW ----------
 @app.route("/batch_predict", methods=["POST"])
 def batch_predict():
+    global batch_result_df
+
     file = request.files["file"]
     df = pd.read_csv(file)
 
     X_transformed = preprocessor.transform(df)
     preds = model.predict(X_transformed)
 
-    df["Predicted_Price_INR"] = preds
+    df["Predicted_Price_INR"] = preds.round(2)
+    batch_result_df = df.copy()
+
+    preview_df = df.head(10)
+
+    return render_template(
+        "batch_preview.html",
+        tables=[preview_df.to_html(classes="table", index=False)]
+    )
+
+
+# ---------------- DOWNLOAD FULL CSV ------------------
+@app.route("/download_batch")
+def download_batch():
+    global batch_result_df
+
+    if batch_result_df is None:
+        return "No batch prediction available", 400
 
     output = io.BytesIO()
-    df.to_csv(output, index=False)
+    batch_result_df.to_csv(output, index=False)
     output.seek(0)
 
     return send_file(
@@ -86,5 +121,20 @@ def batch_predict():
         download_name="batch_predictions.csv"
     )
 
+
+# ---------------- HEALTH CHECK -----------------------
+@app.route("/health")
+def health():
+    return jsonify({
+        "status": "UP",
+        "model_loaded": True,
+        "service": "Laptop Price Predictor"
+    })
+
+
+# =====================================================
+# ENTRY POINT (RENDER SAFE)
+# =====================================================
 if __name__ == "__main__":
-    app.run(debug=True)
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host="0.0.0.0", port=port)
